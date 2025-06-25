@@ -44,16 +44,6 @@
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
-    .back-btn {
-      margin-right: 12px;
-      color: var(--primary);
-      font-weight: bold;
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      line-height: 1;
-    }
     .form-title {
       font-size: 18px;
       font-weight: 600;
@@ -210,16 +200,14 @@
     const registerBtn = document.getElementById('register-btn');
     const submitListingBtn = document.getElementById('submit-listing-btn');
 
-    // --- Form Validation ---
-    function validateAndCollect(formId, fields) {
+    // --- Form Validation (Helper Function) ---
+    function validateAndCollect(fields) {
         let isValid = true;
         const data = {};
-
         fields.forEach(field => {
             const el = document.getElementById(field.id);
             const errorEl = document.getElementById(field.errorId);
             const value = el.value.trim();
-
             if (!value) {
                 errorEl.style.display = 'block';
                 isValid = false;
@@ -231,24 +219,19 @@
         return isValid ? data : null;
     }
 
-
     // --- Event Listeners ---
     registerBtn.addEventListener('click', () => {
-        const formData = validateAndCollect('registration-view', [
+        const formData = validateAndCollect([
             { id: 'full-name', key: 'name', errorId: 'name-error' },
             { id: 'phone', key: 'phone', errorId: 'phone-error' }
         ]);
 
         if (formData) {
-            // Add the action key for the bot
             formData.action = 'register';
-
-            // Send data to the bot
             tg.sendData(JSON.stringify(formData));
-            registerBtn.disabled = true;
-            // The bot will reply, and the user can close the web app.
-            // Or we can close it for them after a short delay.
-            setTimeout(() => tg.close(), 500);
+            
+            // THIS IS THE NEW LINE THAT FIXES THE FLOW
+            tg.close();
         }
     });
 
@@ -257,19 +240,16 @@
         const priceEl = document.getElementById('price');
         const descEl = document.getElementById('description');
         const typeEl = document.querySelector('input[name="listing-type"]:checked');
-        
         const titleError = document.getElementById('title-error');
         const priceError = document.getElementById('price-error');
         
         let isValid = true;
-
         if (!titleEl.value.trim()) {
             titleError.style.display = 'block';
             isValid = false;
         } else {
             titleError.style.display = 'none';
         }
-
         if (!priceEl.value || isNaN(priceEl.value) || Number(priceEl.value) <= 0) {
             priceError.style.display = 'block';
             isValid = false;
@@ -279,41 +259,32 @@
 
         if (isValid) {
             const listingData = {
-                action: 'post_listing', // This key is crucial for the bot
+                action: 'post_listing',
                 title: titleEl.value.trim(),
                 price: priceEl.value,
                 type: typeEl.value,
                 description: descEl.value.trim()
             };
-
-            // Send data to the bot and close the web app
             tg.sendData(JSON.stringify(listingData));
-            submitListingBtn.disabled = true;
             tg.close();
         }
     });
 
     // --- Initialization Logic ---
     function initialize() {
-        // Expand the web app to full height
         tg.expand();
-
-        // Get URL parameters to decide which view to show
         const params = new URLSearchParams(window.location.search);
         const action = params.get('action');
 
-        // Show the correct view based on the 'action' parameter from the bot
         if (action === 'register') {
             registrationView.classList.remove('hidden');
         } else if (action === 'post') {
             listingView.classList.remove('hidden');
         } else {
-            // Fallback if the app is opened without a specific action
             defaultView.classList.remove('hidden');
         }
     }
 
-    // Run initialization when the DOM is fully loaded
     document.addEventListener("DOMContentLoaded", initialize);
 
   </script>
