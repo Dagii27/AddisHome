@@ -242,38 +242,11 @@
       <div class="tagline">Premium Property Network</div>
     </div>
     
-    <!-- Registration Form -->
-    <div id="registration-form" class="hidden">
-      <div class="form-header">
-        <h1 class="form-title">📝 Broker Registration</h1>
-      </div>
-      
-      <div class="form-card">
-        <div class="form-group">
-          <label for="full-name" class="form-label required">Full Name</label>
-          <input type="text" id="full-name" class="form-control" required>
-          <div class="error-message" id="name-error">Please enter your full name</div>
-        </div>
-        
-        <div class="form-group">
-          <label for="company" class="form-label">Company Name (Optional)</label>
-          <input type="text" id="company" class="form-control">
-        </div>
-        
-        <div class="form-group">
-          <label for="phone" class="form-label required">Phone Number</label>
-          <input type="tel" id="phone" class="form-control" placeholder="+251XXXXXXXXX" required>
-          <div class="error-message" id="phone-error">Please enter a valid Ethiopian phone number (+251...)</div>
-        </div>
-        
-        <button id="register-btn" class="btn btn-accent">Complete Registration</button>
-      </div>
-    </div>
-    
     <!-- Broker Dashboard -->
     <div id="dashboard" class="hidden">
       <div class="dashboard-card">
         <div class="dashboard-icon">🏠</div>
+        <!-- This span will be filled with the user's name -->
         <h3>Welcome back, <span id="broker-name"></span>!</h3>
         <p>Manage your property listings</p>
       </div>
@@ -287,7 +260,7 @@
     <!-- Listing Form -->
     <div id="listing-form" class="hidden">
       <div class="form-header">
-        <button class="back-btn" id="listing-back">←</button>
+        <button class="back-btn" id="listing-back">← Back</button>
         <h1 class="form-title">🏠 New Property Listing</h1>
       </div>
       
@@ -363,7 +336,7 @@
       </div>
     </div>
     
-    <!-- Success Messages -->
+    <!-- Success Message -->
     <div id="listing-success" class="hidden">
       <div class="success-message">
         <div class="success-icon">✓</div>
@@ -381,12 +354,23 @@
       tg.expand();
       tg.enableClosingConfirmation();
 
-      // We use a global variable to hold broker data once fetched from the cloud.
+      // This will hold the user's data, passed from the bot
       let currentBrokerData = null;
 
+      // --- Helper function to get URL parameters ---
+      function getQueryParams() {
+          const params = {};
+          window.location.search.substring(1).split("&").forEach(pair => {
+              const [key, value] = pair.split("=");
+              // Decode URI components to handle spaces and special characters
+              if (key) params[key] = decodeURIComponent(value.replace(/\+/g, " "));
+          });
+          return params;
+      }
+      
       // --- Screen Navigation Functions ---
       function showScreen(screenId) {
-        ['registration-form', 'dashboard', 'listing-form', 'listing-success'].forEach(id => {
+        ['dashboard', 'listing-form', 'listing-success'].forEach(id => {
           document.getElementById(id).classList.add('hidden');
         });
         if (screenId) {
@@ -396,7 +380,8 @@
 
       function showDashboard() {
         if (currentBrokerData) {
-          document.getElementById('broker-name').textContent = currentBrokerData.fullName;
+          // Set the user's name on the dashboard
+          document.getElementById('broker-name').textContent = currentBrokerData.fullName.split(' ')[0]; // Show first name
         }
         showScreen('dashboard');
       }
@@ -409,32 +394,7 @@
         showScreen('listing-success');
       }
 
-      function showRegistrationForm() {
-        showScreen('registration-form');
-      }
-
-      // --- Validation Functions ---
-      function validateEthiopianPhone(phone) {
-        return /^\+251[79]\d{8}$/.test(phone);
-      }
-      
-      function validateInput(element, errorElement, condition) {
-          const errorMsg = document.getElementById(errorElement);
-          if (!condition) {
-              errorMsg.style.display = 'block';
-              return false;
-          }
-          errorMsg.style.display = 'none';
-          return true;
-      }
-
-      function validateRegistration() {
-        let isValid = true;
-        isValid &= validateInput('full-name', 'name-error', document.getElementById('full-name').value.trim() !== '');
-        isValid &= validateInput('phone', 'phone-error', validateEthiopianPhone(document.getElementById('phone').value));
-        return !!isValid;
-      }
-
+      // --- Validation Function ---
       function validateListing() {
         let isValid = true;
         const fieldsToValidate = [
@@ -447,37 +407,19 @@
         ];
         fieldsToValidate.forEach(field => {
           const el = document.getElementById(field.id);
+          const errorMsg = document.getElementById(field.error);
           const condition = el.value.trim() !== '' && (el.type !== 'number' || !isNaN(parseFloat(el.value)));
-          isValid &= validateInput(field.id, field.error, condition);
+          if (!condition) {
+              errorMsg.style.display = 'block';
+              isValid = false;
+          } else {
+              errorMsg.style.display = 'none';
+          }
         });
         return !!isValid;
       }
 
       // --- Event Listeners ---
-      document.getElementById('register-btn').addEventListener('click', () => {
-        if (validateRegistration()) {
-          const broker = {
-            fullName: document.getElementById('full-name').value.trim(),
-            company: document.getElementById('company').value.trim(),
-            phone: document.getElementById('phone').value,
-            telegramId: tg.initDataUnsafe.user?.id || 'unknown',
-            registrationDate: new Date().toISOString()
-          };
-
-          // Save broker data to Telegram Cloud Storage
-          tg.CloudStorage.setItem('addisHomeBroker', JSON.stringify(broker), (error, success) => {
-            if (error) {
-              return alert('Registration failed. Please try again. Error: ' + error);
-            }
-            if (success) {
-              currentBrokerData = broker;
-              // Automatically proceed to listing form after successful registration
-              showListingForm();
-            }
-          });
-        }
-      });
-
       document.getElementById('new-listing-btn').addEventListener('click', showListingForm);
       document.getElementById('listing-back').addEventListener('click', showDashboard);
 
@@ -493,55 +435,41 @@
             location: document.getElementById('location').value,
             description: document.getElementById('description').value,
             timestamp: new Date().toISOString(),
-            broker: currentBrokerData // Use data fetched/set at app start
+            broker: currentBrokerData // Attach broker data passed from the bot
           };
 
-          // Send data back to bot via WebApp
+          // Send data back to bot
           tg.sendData(JSON.stringify({ action: 'new_listing', data: listing }));
           
           showListingSuccess();
         }
       });
-
-      // Renamed button 'close-app' to 'return-to-dashboard-btn' in HTML for clarity
+      
       document.getElementById('return-to-dashboard-btn').addEventListener('click', showDashboard);
 
       document.getElementById('my-listings-btn').addEventListener('click', () => {
-        alert("In a real app, this would show your listings.\n\n(This functionality is not built in this version).");
-      });
-
-      // Phone number formatting
-      document.getElementById('phone').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, '');
-        if (input.startsWith('251')) {
-          input = input.substring(3);
-        }
-        if (input.length > 9) {
-          input = input.substring(0, 9);
-        }
-        e.target.value = '+251' + input;
+        alert("This would show your listings. (Functionality coming soon!)");
       });
 
       // --- App Initialization ---
       function initializeApp() {
-        tg.CloudStorage.getItem('addisHomeBroker', (error, value) => {
-          if (error) {
-            console.error("CloudStorage error on init:", error);
-            alert("Could not load your profile. Please try restarting the app.");
-            // Fallback to registration form if cloud is unavailable
-            showRegistrationForm();
-            return;
-          }
+        const params = getQueryParams();
 
-          if (value) {
-            // Broker is registered
-            currentBrokerData = JSON.parse(value);
+        // Check if user data was passed from the bot via URL
+        if (params.user_id && params.name) {
+            console.log("User data received from bot:", params);
+            currentBrokerData = {
+                telegramId: params.user_id,
+                fullName: params.name,
+                phone: params.phone || 'N/A'
+            };
+            // User is authenticated, go straight to the dashboard
             showDashboard();
-          } else {
-            // New broker
-            showRegistrationForm();
-          }
-        });
+        } else {
+            // Fallback for direct access: show an error or a generic message
+            console.warn("No user data found in URL. Displaying a generic error.");
+            document.body.innerHTML = '<div class="container" style="text-align:center; padding-top: 50px;"><h2>Access Denied</h2><p>Please access this portal through the AddisHome ET Telegram bot.</p></div>';
+        }
       }
 
       // Start the app
